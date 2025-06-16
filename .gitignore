@@ -1,0 +1,8 @@
+/configs/home/
+/configs/mlruns/
+/scripts/home/
+/scripts/mlruns/
+/scripts/scores/
+/__pycache__/
+/data/__pycache__/
+/scripts/__pycache__/
