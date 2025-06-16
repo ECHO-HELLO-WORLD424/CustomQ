@@ -1,14 +1,12 @@
 qlib_init:
     provider_uri: "~/.qlib/qlib_data/cn_data_rolling_csi300"
     region: cn
-market: &market csi300
+market: csi300
 benchmark: &benchmark SH000300
 data_handler_config: &data_handler_config
     start_time: 2015-01-01
     end_time: 2025-06-13
-    fit_start_time: 2009-01-01
-    fit_end_time: 2024-06-10
-    instruments: *market
+    instruments: csi300
     data_loader:
         class: QlibDataLoader
         kwargs:

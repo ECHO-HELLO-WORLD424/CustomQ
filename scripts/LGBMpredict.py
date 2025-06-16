@@ -36,7 +36,7 @@ def backtest(pred_score):
 
     # Use the actual data range for backtesting
     backtest_start = max(data_start, pd.Timestamp("2024-06-13"))
-    backtest_end = min(data_end, pd.Timestamp("2025-06-13"))
+    backtest_end = min(data_end, pd.Timestamp("2025-06-12"))
 
     print(f"Backtesting period: {backtest_start.date()} to {backtest_end.date()}")
 
@@ -78,7 +78,7 @@ def main(config_path: str):
 
 
 if __name__ == '__main__':
-    main('/home/patrick/application/PyCharm/project/CustomQ/configs/workflow_config_lightgbm_Alpha158.yaml')
+    main('/home/patrick/application/PyCharm/project/CustomQ/configs/workflow_config_lightgbm_configurable_dataset.yaml')
 
 
 
