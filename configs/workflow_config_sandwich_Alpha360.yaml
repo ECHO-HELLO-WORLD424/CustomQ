@@ -44,21 +44,23 @@ port_analysis_config: &port_analysis_config
             min_cost: 5
 task:
     model:
-        class: ALSTM
-        module_path: qlib.contrib.model.pytorch_alstm
+        class: Sandwich
+        module_path: qlib.contrib.model.pytorch_sandwich
         kwargs:
-            d_feat: 6
-            hidden_size: 64
-            num_layers: 2
-            dropout: 0.0
+            fea_dim: 6
+            cnn_dim_1: 16
+            cnn_dim_2: 16
+            cnn_kernel_size: 3
+            rnn_dim_1: 8
+            rnn_dim_2: 8
+            rnn_dups: 2
+            rnn_layers: 2
             n_epochs: 200
-            lr: 1e-3
+            lr: 0.001
             early_stop: 20
-            batch_size: 800
+            batch_size: 2000
             metric: loss
-            loss: mse
             GPU: 0
-            rnn_type: GRU
     dataset:
         class: DatasetH
         module_path: qlib.data.dataset
@@ -71,18 +73,19 @@ task:
                 train: [2008-01-01, 2014-12-31]
                 valid: [2015-01-01, 2016-12-31]
                 test: [2017-01-01, 2020-08-01]
-    record:
+    record: 
         - class: SignalRecord
           module_path: qlib.workflow.record_temp
-          kwargs:
+          kwargs: 
             model: <MODEL>
             dataset: <DATASET>
         - class: SigAnaRecord
           module_path: qlib.workflow.record_temp
-          kwargs:
+          kwargs: 
             ana_long_short: False
             ann_scaler: 252
         - class: PortAnaRecord
           module_path: qlib.workflow.record_temp
-          kwargs:
+          kwargs: 
             config: *port_analysis_config
+
