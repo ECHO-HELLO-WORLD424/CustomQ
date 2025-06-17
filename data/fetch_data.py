@@ -7,11 +7,14 @@ from tqdm import tqdm
 from typing import List, Optional, Literal
 from concurrent.futures import ProcessPoolExecutor, as_completed
 from contextlib import redirect_stdout
-
+import logging
 import baostock as bs
 from baostock.data.resultset import ResultData
-
 from qlib_dump_bin import DumpDataAll
+
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 
 def _read_all_text(path: str) -> str:
@@ -87,6 +90,21 @@ class DataManager:
         }
         return index_codes.get(self._index_type)
 
+    def _is_stock_active(self, end_date_str: str) -> bool:
+        """Check if a stock is still active based on its end date"""
+        if not end_date_str or end_date_str.strip() == "":
+            return True  # No end date means still active
+
+        try:
+            end_date = pd.Timestamp(end_date_str)
+            current_date = pd.Timestamp.now()
+            # Consider a stock active if it's been delisted less than 30 days ago
+            # This provides a small buffer for recently delisted stocks
+            return abs((current_date - end_date).days) < 10
+        except (ValueError, TypeError):
+            logger.warning(f"Invalid end date {end_date_str}, kept for safety.")
+            return True
+
     def _load_stocks_base(self) -> None:
         if os.path.exists(self._stock_list_path):
             lines = _read_all_text(self._stock_list_path).split('\n')
@@ -98,9 +116,35 @@ class DataManager:
                 raise FileNotFoundError(f"Instruments file not found: {instruments_path}")
 
             lines = _read_all_text(instruments_path).split('\n')
-            stock_ids = [line.split('\t')[0] for line in lines if line != ""]
-            self._stocks = [f"{stk_id[:2].lower()}.{stk_id[-6:]}"
-                            for stk_id in stock_ids]
+            active_stocks = []
+            total_stocks = 0
+            filtered_stocks = 0
+
+            for line in lines:
+                if line.strip() == "":
+                    continue
+
+                parts = line.split('\t')
+                if len(parts) < 2:
+                    continue
+
+                stock_id = parts[0]
+                end_date = parts[-1]
+
+                total_stocks += 1
+
+                # Check if stock is still active
+                if self._is_stock_active(end_date):
+                    baostock_code = f"{stock_id[:2].lower()}.{stock_id[-6:]}"
+                    active_stocks.append(baostock_code)
+                else:
+                    filtered_stocks += 1
+                    print(f"Filtered out inactive stock: {stock_id} (delisted on {end_date})")
+
+            self._stocks = active_stocks
+            print(f"Total stocks in instruments file: {total_stocks}")
+            print(f"Active stocks: {len(active_stocks)}")
+            print(f"Filtered out inactive stocks: {filtered_stocks}")
 
     def _load_stocks(self):
         print(f"Loading {self._index_type.upper()} stock list")
@@ -113,7 +157,7 @@ class DataManager:
             self._stocks.append(index_code)
 
         self._stocks = list(set(self._stocks))
-        print(f"Loaded {len(self._stocks)} stocks/indices")
+        print(f"Loaded {len(self._stocks)} active stocks/indices")
 
         _write_all_text(self._stock_list_path,
                         '\n'.join(str(s) for s in self._stocks))
@@ -145,9 +189,15 @@ class DataManager:
             self._fetch_basic_info_job,
             [dict(code=code) for code in self._stocks]
         )
-        df = pd.concat(dfs)
+        # Filter out empty dataframes that might result from invalid/delisted stocks
+        valid_dfs = [df for df in dfs if not df.empty]
+        if not valid_dfs:
+            raise ValueError("No valid stock data found")
+
+        df = pd.concat(valid_dfs)
         df = df.sort_values(by="code").drop_duplicates(subset="code").set_index("code")
         df.to_csv(f"{self._save_path}/basic_info.csv")
+        print(f"Successfully fetched basic info for {len(df)} stocks")
         return df
 
     def _fetch_adjust_factors_job(self, code: str, start: str) -> pd.DataFrame:
@@ -195,6 +245,12 @@ class DataManager:
         )
         adj = self._adjust_factors_for(code)
         df = self._result_to_data_frame(query).join(adj, on="date", how="left")
+
+        # Skip if no data was returned (might happen for invalid/delisted stocks)
+        if df.empty:
+            print(f"Warning: No data returned for {code}")
+            return
+
         df[self._adjust_columns] = df[self._adjust_columns].ffill().fillna(1.)
         df[numeric_fields] = df[numeric_fields].replace("", "0.").astype(float)
 

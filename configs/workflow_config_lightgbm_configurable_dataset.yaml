@@ -5,7 +5,7 @@ market: csi300
 benchmark: &benchmark SH000300
 data_handler_config: &data_handler_config
     start_time: 2015-01-01
-    end_time: 2025-06-13
+    end_time: 2025-06-17
     instruments: csi300
     data_loader:
         class: QlibDataLoader
@@ -69,7 +69,7 @@ task:
             segments:
                 train: [2015-01-01, 2023-06-14]
                 valid: [2023-06-15, 2024-06-10]
-                test: [2024-06-11, 2025-06-13]
+                test: [2024-06-11, 2025-06-17]
     record: 
         - class: SignalRecord
           module_path: qlib.workflow.record_temp

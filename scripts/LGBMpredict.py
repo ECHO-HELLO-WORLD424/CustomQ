@@ -1,11 +1,14 @@
-from qlib.contrib.evaluate import backtest_daily
-from qlib.contrib.evaluate import risk_analysis
-from qlib.contrib.strategy import TopkDropoutStrategy
 from datetime import datetime
 from pprint import pprint
 import pandas as pd
 import yaml
+
 import qlib
+from qlib.contrib.evaluate import backtest_daily
+from qlib.contrib.evaluate import risk_analysis
+from qlib.contrib.strategy import TopkDropoutStrategy
+from qlib.workflow import R
+from qlib.workflow.record_temp import SignalRecord
 from qlib.constant import REG_CN
 from qlib.utils import init_instance_by_config
 
@@ -27,8 +30,8 @@ def backtest(pred_score):
     print(f"Prediction data range: {data_start.date()} to {data_end.date()}")
 
     STRATEGY_CONFIG = {
-        "topk": 50,
-        "n_drop": 5,
+        "topk": 10,
+        "n_drop": 3,
         "signal": pred_score,
     }
 
@@ -63,7 +66,13 @@ def main(config_path: str):
     qlib.init(provider_uri=config['qlib_init']['provider_uri'], region=REG_CN)
     model, dataset = init(config)
 
-    model.fit(dataset)
+    with R.start(experiment_name="workflow"):
+        model.fit(dataset)
+
+        recorder = R.get_recorder()
+        sr = SignalRecord(model, dataset, recorder)
+        sr.generate()
+
     pred = model.predict(dataset)
 
     # backtest
@@ -71,7 +80,7 @@ def main(config_path: str):
 
     if isinstance(pred, pd.Series):
         pred = pred.to_frame('score')
-    pprint(pred.head(500))
+    pprint(pred.head(-50))
 
     save_name = f"./scores/{config['task']['model']['class']}" + datetime.now().strftime('_pred_%d_%m_%y-%H_%M.parquet')
     pred.to_parquet(save_name, engine='pyarrow')
